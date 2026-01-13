@@ -1,0 +1,471 @@
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<div id="all-posts">
+  <h3>Katalog Produk Shopee</h3>
+  
+  <!-- Search Bar -->
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="Cari produk...">
+  </div>
+
+  <!-- Debug Info -->
+  <div id="debugInfo" style="text-align: center; color: #666; font-size: 0.9rem; margin: 10px 0;"></div>
+
+  <!-- Pagination Controls -->
+  <div class="pagination-controls">
+    <button id="prevPage" disabled>← Sebelumnya</button>
+    <span id="pageInfo">Halaman 1</span>
+    
+    <!-- Jump to Page Input -->
+    <div class="jump-to-page">
+      <input type="number" id="jumpPageInput" placeholder="Halaman" min="1">
+      <button id="jumpPageBtn">Go</button>
+    </div>
+    
+    <button id="nextPage">Berikutnya →</button>
+  </div>
+
+  <ul id="postList"></ul>
+
+  <!-- Pagination Controls Bottom -->
+  <div class="pagination-controls">
+    <button id="prevPageBottom" disabled>← Sebelumnya</button>
+    <span id="pageInfoBottom">Halaman 1</span>
+    
+    <!-- Jump to Page Input Bottom -->
+    <div class="jump-to-page">
+      <input type="number" id="jumpPageInputBottom" placeholder="Halaman" min="1">
+      <button id="jumpPageBtnBottom">Go</button>
+    </div>
+    
+    <button id="nextPageBottom">Berikutnya →</button>
+  </div>
+</div>
+
+<script>
+// Global variables
+let allProducts = [];
+let currentPage = 1;
+const productsPerPage = 12; // DIKURANGI untuk testing
+
+// Function utama yang dipanggil oleh Blogger API
+function showPosts(json) {
+  console.log('Data dari Blogger:', json); // Debug log
+  
+  const entries = json.feed.entry || [];
+  const debugInfo = document.getElementById("debugInfo");
+  debugInfo.textContent = `Total posts ditemukan: ${entries.length}`;
+  
+  if (!entries.length) {
+    document.getElementById("postList").innerHTML = "<li class='empty'>Tidak ada produk.</li>";
+    return;
+  }
+
+  // Simpan semua produk
+  allProducts = entries.map(entry => {
+    const title = entry.title.$t;
+    const link = entry.link.find(l => l.rel === "alternate").href;
+    
+    // ambil thumbnail
+    let thumb = "";
+    const content = entry.content ? entry.content.$t : "";
+    
+    // Cari gambar pertama dalam konten
+    const imgMatch = content.match(/<img[^>]+src="([^">]+)"/);
+    if (imgMatch) {
+      thumb = imgMatch[1];
+    } else {
+      thumb = "https://via.placeholder.com/400x600/0073e6/ffffff?text=No+Image";
+    }
+
+    return { title, link, thumb };
+  });
+
+  console.log('Total products:', allProducts.length); // Debug log
+  
+  // Tampilkan halaman pertama
+  displayPage(1);
+  setupPagination();
+  setupSearch();
+  setupJumpToPage();
+}
+
+// Function untuk menampilkan produk berdasarkan halaman
+function displayPage(page) {
+  const list = document.getElementById("postList");
+  const startIndex = (page - 1) * productsPerPage;
+  const endIndex = startIndex + productsPerPage;
+  const pageProducts = allProducts.slice(startIndex, endIndex);
+
+  console.log(`Display page ${page}:`, {
+    startIndex,
+    endIndex,
+    totalProducts: allProducts.length,
+    pageProductsCount: pageProducts.length
+  }); // Debug log
+
+  list.innerHTML = "";
+
+  if (!pageProducts.length) {
+    list.innerHTML = "<li class='empty'>Tidak ada produk di halaman ini.</li>";
+    return;
+  }
+
+  // Render produk ke dalam grid
+  pageProducts.forEach(product => {
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <a href="${product.link}" target="_blank" rel="noopener noreferrer">
+        <div class="post-card">
+          <img src="${product.thumb}" alt="${product.title}" class="post-thumb" onerror="this.src='https://via.placeholder.com/400x600/0073e6/ffffff?text=No+Image'">
+          <div class="post-title">${product.title}</div>
+        </div>
+      </a>`;
+    list.appendChild(li);
+  });
+
+  // Update page info
+  const totalPages = Math.ceil(allProducts.length / productsPerPage);
+  console.log('Total pages:', totalPages); // Debug log
+  
+  document.getElementById("pageInfo").textContent = `Halaman ${page} dari ${totalPages}`;
+  document.getElementById("pageInfoBottom").textContent = `Halaman ${page} dari ${totalPages}`;
+
+  // Update button states
+  document.getElementById("prevPage").disabled = page === 1;
+  document.getElementById("prevPageBottom").disabled = page === 1;
+  document.getElementById("nextPage").disabled = page === totalPages || totalPages <= 1;
+  document.getElementById("nextPageBottom").disabled = page === totalPages || totalPages <= 1;
+
+  // Update jump to page input
+  document.getElementById("jumpPageInput").value = "";
+  document.getElementById("jumpPageInputBottom").value = "";
+
+  currentPage = page;
+}
+
+// Setup event listener untuk tombol pagination
+function setupPagination() {
+  document.getElementById("prevPage").addEventListener("click", () => {
+    console.log('Prev clicked, current page:', currentPage);
+    if (currentPage > 1) displayPage(currentPage - 1);
+  });
+
+  document.getElementById("nextPage").addEventListener("click", () => {
+    console.log('Next clicked, current page:', currentPage);
+    const totalPages = Math.ceil(allProducts.length / productsPerPage);
+    if (currentPage < totalPages) displayPage(currentPage + 1);
+  });
+
+  document.getElementById("prevPageBottom").addEventListener("click", () => {
+    console.log('PrevBottom clicked, current page:', currentPage);
+    if (currentPage > 1) displayPage(currentPage - 1);
+  });
+
+  document.getElementById("nextPageBottom").addEventListener("click", () => {
+    console.log('NextBottom clicked, current page:', currentPage);
+    const totalPages = Math.ceil(allProducts.length / productsPerPage);
+    if (currentPage < totalPages) displayPage(currentPage + 1);
+  });
+}
+
+// Setup fitur pencarian produk
+function setupSearch() {
+  const searchInput = document.getElementById("searchInput");
+  searchInput.addEventListener("input", function () {
+    const filter = this.value.toLowerCase();
+    
+    if (filter === "") {
+      // Jika search kosong, kembali ke pagination normal
+      displayPage(1);
+      document.querySelectorAll('.pagination-controls').forEach(el => {
+        el.style.display = 'flex';
+      });
+      return;
+    }
+
+    // Filter produk berdasarkan search
+    const filteredProducts = allProducts.filter(product => 
+      product.title.toLowerCase().includes(filter)
+    );
+
+    const list = document.getElementById("postList");
+    list.innerHTML = "";
+
+    if (!filteredProducts.length) {
+      list.innerHTML = "<li class='empty'>Tidak ada produk yang cocok.</li>";
+      // Hide pagination saat search aktif
+      document.querySelectorAll('.pagination-controls').forEach(el => {
+        el.style.display = 'none';
+      });
+      return;
+    }
+
+    // Tampilkan semua hasil search (tanpa pagination)
+    filteredProducts.forEach(product => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <a href="${product.link}" target="_blank" rel="noopener noreferrer">
+          <div class="post-card">
+            <img src="${product.thumb}" alt="${product.title}" class="post-thumb" onerror="this.src='https://via.placeholder.com/400x600/0073e6/ffffff?text=No+Image'">
+            <div class="post-title">${product.title}</div>
+          </div>
+        </a>`;
+      list.appendChild(li);
+    });
+
+    // Hide pagination saat search aktif
+    document.querySelectorAll('.pagination-controls').forEach(el => {
+      el.style.display = 'none';
+    });
+  });
+}
+
+// Setup fitur jump to page (lompat ke halaman tertentu)
+function setupJumpToPage() {
+  // Untuk jump to page di atas
+  document.getElementById("jumpPageBtn").addEventListener("click", jumpToPage);
+  document.getElementById("jumpPageInput").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") jumpToPage();
+  });
+
+  // Untuk jump to page di bawah
+  document.getElementById("jumpPageBtnBottom").addEventListener("click", jumpToPageBottom);
+  document.getElementById("jumpPageInputBottom").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") jumpToPageBottom();
+  });
+}
+
+// Function untuk lompat ke halaman dari input atas
+function jumpToPage() {
+  const pageInput = document.getElementById("jumpPageInput");
+  const pageNumber = parseInt(pageInput.value);
+  const totalPages = Math.ceil(allProducts.length / productsPerPage);
+  
+  if (pageNumber && pageNumber >= 1 && pageNumber <= totalPages) {
+    displayPage(pageNumber);
+  } else {
+    alert(`Masukkan halaman antara 1 dan ${totalPages}`);
+  }
+  pageInput.value = "";
+}
+
+// Function untuk lompat ke halaman dari input bawah
+function jumpToPageBottom() {
+  const pageInput = document.getElementById("jumpPageInputBottom");
+  const pageNumber = parseInt(pageInput.value);
+  const totalPages = Math.ceil(allProducts.length / productsPerPage);
+  
+  if (pageNumber && pageNumber >= 1 && pageNumber <= totalPages) {
+    displayPage(pageNumber);
+  } else {
+    alert(`Masukkan halaman antara 1 dan ${totalPages}`);
+  }
+  pageInput.value = "";
+}
+
+// Fallback jika API tidak bekerja
+setTimeout(() => {
+  if (allProducts.length === 0) {
+    document.getElementById("debugInfo").textContent += " - API mungkin timeout, cek console";
+    console.error('Blogger API timeout atau error');
+  }
+}, 3000);
+</script>
+
+<!-- Load data dari Blogger API untuk POSTS -->
+<script src="https://www.blogger.com/feeds/1551462197112272688/posts/default?alt=json-in-script&callback=showPosts"></script>
+
+<style>
+/* Bungkus utama */
+#all-posts {
+  max-width: 1000px;
+  width: 95%;
+  margin: 40px auto;
+  padding: 10px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  box-sizing: border-box;
+}
+
+/* Judul */
+#all-posts h3 {
+  font-size: 1.4rem;
+  margin: 10px 0 10px;
+  color: #222;
+  text-align: center;
+}
+
+/* Search bar */
+.search-box {
+  text-align: center;
+  margin: 15px 0 25px;
+}
+.search-box input {
+  width: 90%;
+  max-width: 400px;
+  padding: 8px 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+}
+
+/* Pagination Controls */
+.pagination-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 15px;
+  margin: 20px 0;
+  padding: 15px;
+  flex-wrap: wrap;
+}
+
+.pagination-controls button {
+  padding: 8px 16px;
+  background: #e1251b;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.3s;
+}
+
+.pagination-controls button:hover:not(:disabled) {
+  background: #c21a11;
+}
+
+.pagination-controls button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.pagination-controls span {
+  font-weight: bold;
+  color: #333;
+}
+
+/* Jump to Page Styles */
+.jump-to-page {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.jump-to-page input {
+  width: 60px;
+  padding: 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  text-align: center;
+}
+
+.jump-to-page button {
+  padding: 6px 12px;
+  background: #28a745;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: background 0.3s;
+}
+
+.jump-to-page button:hover {
+  background: #218838;
+}
+
+/* Grid utama */
+#all-posts ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+/* Kotak */
+#all-posts li {
+  display: flex;
+}
+
+#all-posts li a {
+  flex: 1;
+  text-decoration: none;
+}
+
+.post-card {
+  background: #f6f8fa;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: all .2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  height: 100%;
+}
+
+.post-card:hover {
+  background: #e8f2ff;
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* Thumbnail */
+.post-thumb {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+  background: #f0f0f0;
+}
+
+/* Judul */
+.post-title {
+  font-size: 1rem;
+  color: #0073e6;
+  padding: 10px;
+  text-align: center;
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  word-wrap: break-word;
+  min-height: 60px;
+}
+
+/* Empty state */
+.empty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-style: italic;
+}
+
+/* Responsif mobile */
+@media (max-width: 768px) {
+  #all-posts ul {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .post-title {
+    font-size: 0.9rem;
+    padding: 8px;
+    min-height: 50px;
+  }
+  .post-thumb {
+    height: 150px;
+  }
+  .pagination-controls {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .jump-to-page {
+    order: 3;
+    margin-top: 10px;
+  }
+}
+</style>
