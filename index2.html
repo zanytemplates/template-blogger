@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Index GitHub Directory</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background:#f0f2f5;
+      margin:0;
+      padding:20px;
+    }
+
+    #all-files {
+      max-width: 600px;
+      width: 90%;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    #all-files h3 {
+      font-size: 1.4rem;
+      margin-bottom: 12px;
+      color: #222;
+    }
+
+    /* Search box */
+    #searchBox {
+      width: 100%;
+      padding: 10px 12px;
+      margin-bottom: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+
+    #searchBox:focus {
+      outline: none;
+      border-color: #0073e6;
+    }
+
+    #fileList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #fileList li a {
+      display: block;
+      padding: 12px;
+      border-radius: 8px;
+      background: #f6f8fa;
+      color: #0073e6;
+      text-decoration: none;
+      font-size: 1rem;
+      transition: all .2s ease;
+      word-wrap: break-word;
+    }
+
+    #fileList li a:hover {
+      background: #e8f2ff;
+      transform: translateY(-2px);
+    }
+
+    @media (max-width: 480px) {
+      #all-files {
+        margin: 20px auto;
+        padding: 15px;
+        width: 95%;
+      }
+      #all-files h3 {
+        font-size: 1.1rem;
+      }
+      #fileList li a {
+        font-size: 0.9rem;
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="all-files">
+    <h3>📂 Daftar File di Repo</h3>
+
+    <!-- Live Search -->
+    <input
+      type="text"
+      id="searchBox"
+      placeholder="🔍 Cari file atau folder..."
+      oninput="filterFiles(this.value)"
+    >
+
+    <ul id="fileList">
+      <li>Loading...</li>
+    </ul>
+  </div>
+
+  <script>
+    const apiUrl = "https://api.github.com/repos/template-zany/template-blogger/contents/";
+    let allFiles = [];
+
+    async function loadRepo() {
+      const list = document.getElementById("fileList");
+      list.innerHTML = "<li>Loading...</li>";
+
+      try {
+        const res = await fetch(apiUrl);
+        const data = await res.json();
+
+        if (!Array.isArray(data)) {
+          list.innerHTML = "<li>Tidak ada data.</li>";
+          return;
+        }
+
+        allFiles = data;
+        renderList(allFiles);
+
+      } catch (e) {
+        list.innerHTML = "<li>Gagal memuat data.</li>";
+        console.error(e);
+      }
+    }
+
+    function renderList(files) {
+      const list = document.getElementById("fileList");
+      list.innerHTML = "";
+
+      if (files.length === 0) {
+        list.innerHTML = "<li>Tidak ditemukan.</li>";
+        return;
+      }
+
+      files.forEach(item => {
+        const li = document.createElement("li");
+
+        if (item.type === "dir") {
+          li.innerHTML = `<a href="${item.html_url}" target="_blank">📁 ${item.name}</a>`;
+        } else {
+          const githubPagesUrl =
+            `https://template-zany.github.io/template-blogger/${item.name}`;
+          li.innerHTML = `<a href="${githubPagesUrl}" target="_blank">📄 ${item.name}</a>`;
+        }
+
+        list.appendChild(li);
+      });
+    }
+
+    function filterFiles(keyword) {
+      const q = keyword.toLowerCase();
+      const filtered = allFiles.filter(item =>
+        item.name.toLowerCase().includes(q)
+      );
+      renderList(filtered);
+    }
+
+    loadRepo();
+  </script>
+</body>
+</html>
