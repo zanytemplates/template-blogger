@@ -2,86 +2,121 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Index Repository</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Index GitHub Directory</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f9f9f9;
-      padding: 20px;
+      background:#f0f2f5;
+      margin:0;
+      padding:20px;
     }
-    ul { list-style: none; padding-left: 20px; }
-    li { margin: 4px 0; }
-    .folder { font-weight: bold; }
-    a { text-decoration: none; color: #0366d6; }
+
+    /* Bungkus utama */
+    #all-files {
+      max-width: 600px;
+      width: 90%;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      text-align: center;
+      box-sizing: border-box;
+    }
+
+    #all-files h3 {
+      font-size: 1.4rem;
+      margin-bottom: 15px;
+      color: #222;
+      line-height: 1.3;
+    }
+
+    #fileList {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    #fileList li a {
+      display: block;
+      padding: 12px;
+      border-radius: 8px;
+      background: #f6f8fa;
+      color: #0073e6;
+      text-decoration: none;
+      font-size: 1rem;
+      transition: all .2s ease;
+      word-wrap: break-word;
+    }
+
+    #fileList li a:hover {
+      background: #e8f2ff;
+      transform: translateY(-2px);
+    }
+
+    /* Responsif layar kecil */
+    @media (max-width: 480px) {
+      #all-files {
+        margin: 20px auto;
+        padding: 15px;
+        width: 95%;
+      }
+      #all-files h3 {
+        font-size: 1.1rem;
+      }
+      #fileList li a {
+        font-size: 0.9rem;
+        padding: 10px;
+      }
+    }
   </style>
 </head>
 <body>
+  <div id="all-files">
+    <h3>📂 Daftar File di Repo</h3>
+    <ul id="fileList"><li>Loading...</li></ul>
+  </div>
 
-<h1>Isi Repository</h1>
-<div id="tree"></div>
+  <script>
+    async function loadRepo() {
+  const list = document.getElementById("fileList");
+  list.innerHTML = "";
 
-<script>
-const user = "template-zany";
-const repo = "template-blogger";
-const branch = "main";
+  const apiUrl = "https://api.github.com/repos/template-zany/template-blogger/contents/";
 
-async function loadRepo() {
-  // ambil commit terakhir
-  const repoData = await fetch(`https://api.github.com/repos/${user}/${repo}`);
-  const repoJson = await repoData.json();
+  try {
+    const res = await fetch(apiUrl);
+    const data = await res.json();
 
-  const treeSha = repoJson.default_branch;
-
-  const treeRes = await fetch(
-    `https://api.github.com/repos/${user}/${repo}/git/trees/${treeSha}?recursive=1`
-  );
-  const treeJson = await treeRes.json();
-
-  renderTree(treeJson.tree);
-}
-
-function renderTree(tree) {
-  const root = {};
-
-  // bangun struktur folder
-  tree.forEach(item => {
-    const parts = item.path.split("/");
-    let current = root;
-
-    parts.forEach((part, i) => {
-      if (!current[part]) {
-        current[part] = i === parts.length - 1 ? item : {};
-      }
-      current = current[part];
-    });
-  });
-
-  document.getElementById("tree").appendChild(buildList(root));
-}
-
-function buildList(obj, basePath = "") {
-  const ul = document.createElement("ul");
-
-  Object.keys(obj).sort().forEach(key => {
-    const li = document.createElement("li");
-    const item = obj[key];
-    const path = basePath ? basePath + "/" + key : key;
-
-    if (item.type === "blob") {
-      li.innerHTML = `📄 <a href="https://raw.githubusercontent.com/${user}/${repo}/main/${path}" target="_blank">${key}</a>`;
-    } else {
-      li.innerHTML = `📁 <span class="folder">${key}</span>`;
-      li.appendChild(buildList(item, path));
+    if (!Array.isArray(data)) {
+      list.innerHTML = "<li>Tidak ada data.</li>";
+      return;
     }
 
-    ul.appendChild(li);
-  });
-
-  return ul;
+    data.forEach(item => {
+      const li = document.createElement("li");
+      if (item.type === "dir") {
+        // Link folder tetap pakai html_url
+        li.innerHTML = `<a href="${item.html_url}" target="_blank">📁 ${item.name}</a>`;
+      } else {
+        // Ubah link ke GitHub Pages
+        const githubPagesUrl = `https://template-zany.github.io/template-blogger/${item.name}`;
+        li.innerHTML = `<a href="${githubPagesUrl}" target="_blank">📄 ${item.name}</a>`;
+      }
+      list.appendChild(li);
+    });
+  } catch (e) {
+    list.innerHTML = "<li>Gagal memuat data.</li>";
+    console.error(e);
+  }
 }
 
-loadRepo();
-</script>
 
+    loadRepo();
+  </script>
 </body>
 </html>
