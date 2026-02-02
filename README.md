@@ -1,1 +1,1 @@
-https://template-zany.github.io/template-blogger/
+https://zanytemplates.github.io/template-blogger/
